@@ -1,0 +1,9 @@
+<use name="FWCore/Framework"/>
+<use name="FWCore/ParameterSet"/>
+<use name="FWCore/PluginManager"/>
+<use name="DataFormats/PatCandidates"/>
+<use name="DataFormats/HepMCCandidate/interface"/>
+<use name="SimDataFormats/GeneratorProducts"/>
+<use name="DataFormats/Math"/>
+<use name="PhysicsTools/PatAlgos"/>
+<flags EDM_PLUGIN="1"/>

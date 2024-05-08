@@ -36,6 +36,7 @@
 #include "DataFormats/IRPCDigi/interface/IRPCDigi.h"
 #include "DataFormats/MuonData/interface/MuonDigiCollection.h"
 #include "DataFormats/IRPCDigi/interface/IRPCDigiCollection.h"
+#include "DataFormats/IRPCDigi/interface/IRPCDigiTime.h"
 
 #include "TTree.h"
 
@@ -54,6 +55,7 @@ using namespace std;
 struct eventInfo
 {
   int nRPCDetId;
+  vector<int> RPCDetId_idx;
   vector<int> RPCDetId_region;
   vector<int> RPCDetId_ring;
   vector<int> RPCDetId_station;
@@ -72,6 +74,10 @@ struct eventInfo
   vector<int> iRPCDigi_bxHR;
   vector<int> iRPCDigi_sbxLR;
   vector<int> iRPCDigi_sbxHR;
+  vector<float> iRPCDigi_time;
+  vector<float> iRPCDigi_timeLR;
+  vector<float> iRPCDigi_timeHR;
+  vector<float> iRPCDigi_coordinateY;
 };
 
 class rpc : public edm::one::EDAnalyzer<edm::one::SharedResources> {
@@ -155,9 +161,10 @@ void rpc::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
     if ((*rpcchamber).first.region() == 0)
       continue;
 
-    if (debugInfo) {
+    if (debugInfo_) {
       cout<<"---> Idx: "<<nrpc<<" - RPCDetId: "<<detid.region()<<"\t"<<detid.ring()<<"\t"<<detid.station()<<"\t"<<detid.sector()<<"\t"<<detid.layer()<<"\t"<<detid.subsector()<<"\t"<<detid.roll()<<endl;
     }
+    evInfo.RPCDetId_idx.push_back(nrpc);
     evInfo.RPCDetId_region.push_back(detid.region());
     evInfo.RPCDetId_ring.push_back(detid.ring());
     evInfo.RPCDetId_station.push_back(detid.station());
@@ -166,15 +173,19 @@ void rpc::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
     evInfo.RPCDetId_subsector.push_back(detid.subsector());
     evInfo.RPCDetId_roll.push_back(detid.roll());
     // ! FIXME:
-    evInfo.RPCDetId_rollID.push_back(detid.rollId());
+    // evInfo.RPCDetId_rollID.push_back(detid.rollId());
 
     auto digi = (*rpcchamber).second.first;
     auto dend = (*rpcchamber).second.second;
 
     int ndigi_for_detid = 0;
     for (; digi != dend; ++digi) {
+      // time calculation
+      auto tdigi = IRPCDigiTime(*digi);
+
       if (debugInfo) {
         cout<<"------> "<<ndigi<<" - IRPCDigi: "<<digi->strip()<<"\t"<<digi->bx()<<"\t"<<digi->sbx()<<"\t"<<digi->bxLR()<<"\t"<<digi->bxHR()<<"\t"<<digi->sbxLR()<<"\t"<<digi->sbxHR()<<endl;
+        cout<<"------> "<<ndigi<<" - IRPCDigiTime: "<<digi->strip()<<"\t"<<tdigi.time()<<"\t"<<tdigi.timeLR()<<"\t"<<tdigi.timeHR()<<"\t"<<tdigi.coordinateY()<<endl;
       }
 
       evInfo.iRPCDigi_RPCDetId_idx.push_back(nrpc);
@@ -185,15 +196,19 @@ void rpc::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
       evInfo.iRPCDigi_bxHR.push_back(digi->bxHR());
       evInfo.iRPCDigi_sbxLR.push_back(digi->sbxLR());
       evInfo.iRPCDigi_sbxHR.push_back(digi->sbxHR());
+      evInfo.iRPCDigi_time.push_back(tdigi.time());
+      evInfo.iRPCDigi_timeLR.push_back(tdigi.timeLR());
+      evInfo.iRPCDigi_timeHR.push_back(tdigi.timeHR());
+      evInfo.iRPCDigi_coordinateY.push_back(tdigi.coordinateY());
 
       ndigi++;
       ndigi_for_detid++;
     }
-    evInfo.RPCDetId_niRPCDigi.push_back(ndigi_for_detid+1);
+    evInfo.RPCDetId_niRPCDigi.push_back(ndigi_for_detid);
     nrpc++;
   }
-  evInfo.nRPCDetId=nrpc+1;
-  evInfo.niRPCDigi=ndigi+1;
+  evInfo.nRPCDetId=nrpc;
+  evInfo.niRPCDigi=ndigi;
 
   // --- fill the tree
   eventTree->Fill();
@@ -210,6 +225,7 @@ void rpc::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
 void rpc::beginJob() {
   // please remove this method if not needed
   eventTree->Branch("nRPCDetId",             &evInfo.nRPCDetId);
+  eventTree->Branch("RPCDetId_idx",          &evInfo.RPCDetId_idx);
   eventTree->Branch("RPCDetId_region",       &evInfo.RPCDetId_region);
   eventTree->Branch("RPCDetId_ring",         &evInfo.RPCDetId_ring);
   eventTree->Branch("RPCDetId_station",      &evInfo.RPCDetId_station);
@@ -228,6 +244,10 @@ void rpc::beginJob() {
   eventTree->Branch("iRPCDigi_bxHR",         &evInfo.iRPCDigi_bxHR);
   eventTree->Branch("iRPCDigi_sbxLR",        &evInfo.iRPCDigi_sbxLR);
   eventTree->Branch("iRPCDigi_sbxHR",        &evInfo.iRPCDigi_sbxHR);
+  eventTree->Branch("iRPCDigi_time",         &evInfo.iRPCDigi_time);
+  eventTree->Branch("iRPCDigi_timeLR",       &evInfo.iRPCDigi_timeLR);
+  eventTree->Branch("iRPCDigi_timeHR",       &evInfo.iRPCDigi_timeHR);
+  eventTree->Branch("iRPCDigi_coordinateY",  &evInfo.iRPCDigi_coordinateY);
 }
 
 // ------------ method called once each job just after ending the event loop  ------------
@@ -248,6 +268,7 @@ void rpc::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
 void rpc::initEventStructure() {
   // per-event tree:
   evInfo.nRPCDetId = -9999;
+  evInfo.RPCDetId_idx.clear();
   evInfo.RPCDetId_region.clear();
   evInfo.RPCDetId_ring.clear();
   evInfo.RPCDetId_station.clear();
@@ -266,6 +287,10 @@ void rpc::initEventStructure() {
   evInfo.iRPCDigi_bxHR.clear();
   evInfo.iRPCDigi_sbxLR.clear();
   evInfo.iRPCDigi_sbxHR.clear();
+  evInfo.iRPCDigi_time.clear();
+  evInfo.iRPCDigi_timeLR.clear();
+  evInfo.iRPCDigi_timeHR.clear();
+  evInfo.iRPCDigi_coordinateY.clear();
 }
 
 //define this as a plug-in
